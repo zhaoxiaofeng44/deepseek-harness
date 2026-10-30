@@ -13,11 +13,8 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-// Empty type imports carry the `connection`, `loader`, and `webServer` Context
-// merges for the reads below.
+// Empty type import carries the `loader` Context merge for the reads below.
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-client-connection'
-import type {} from '@deepseek-ai/dsh-host-webserver'
 import { launchedThroughSsh, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { canExecute, hasLinuxChooserBinary } from './probe.ts'
 import type { DirectoryPickerBackendKind } from './resolve.ts'
@@ -30,11 +27,10 @@ export { resolveDirectoryPickerBackend } from './resolve.ts'
 /** Cordis plugin name. */
 export const name = 'directory-picker-auto'
 /**
- * Required services: HTTP deployment settings (`webServer`), the Connection
- * trust policy (`connection`), and the entry tree the backend mounts into
- * (`loader`).
+ * Required services: the entry tree the backend mounts into (`loader`). The
+ * decision reads process facts only, so no deployment trust policy is needed.
  */
-export const inject = ['webServer', 'connection', 'loader']
+export const inject = ['loader']
 
 /**
  * Host backend package per resolved kind — fixed composition vocabulary, not a
@@ -68,8 +64,6 @@ export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  */
 export async function apply(ctx: Context): Promise<void> {
   const backend = resolveDirectoryPickerBackend({
-    bindHost: ctx.webServer.host,
-    allowsRemoteAuthorities: ctx.connection.allowsRemoteAuthorities,
     platform: process.platform,
     ssh: launchedThroughSsh(launchEnvironmentOf(ctx)),
     env: process.env,

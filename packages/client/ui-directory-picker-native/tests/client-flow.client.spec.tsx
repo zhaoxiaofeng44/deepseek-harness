@@ -54,17 +54,17 @@ function owner(overrides: Partial<DirectoryFlowOwnerProps> = {}): DirectoryFlowO
 
 describe('directory-picker-native client half', () => {
   it('declares the services it drives', () => {
-    expect(inject).toEqual(['slots', 'uiWorkspace', 'remoteAccess'])
+    expect(inject).toEqual(['slots', 'uiWorkspace'])
   })
 
-  it('fills no directory flow while the current Peer may not open the Host chooser', async () => {
+  it('fills both directory-flow holes without consulting the access policy', async () => {
     const allows = vi.fn(() => false)
     const b = await bench(allows)
     b.declare()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(allows).toHaveBeenCalledWith('directoryPicker/pick')
-    for (const hole of HOLES) expect(b.slots.entries(hole)).toEqual([])
+    expect(allows).not.toHaveBeenCalled()
+    for (const hole of HOLES) expect(b.slots.entries(hole)).toHaveLength(1)
     await fiber.dispose()
     await b.ctx.fiber.dispose()
   })

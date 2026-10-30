@@ -102,12 +102,13 @@ afterEach(async () => {
 })
 
 /**
- * Write a two-row cordis.yml (webserver + chooser) over a context that
- * provides the Connection trust policy, then boot it through the real Loader.
+ * Write a two-row cordis.yml (webserver + chooser) and boot it through the real
+ * Loader. The chooser decision reads process facts only, so no Connection trust
+ * policy is provided.
  */
 async function loadComposition(
   bindHost: string,
-  options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot; remoteAuthorities?: boolean } = {},
+  options: { failSurface?: boolean; launchEnvironment?: LaunchEnvironmentSnapshot } = {},
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
   const configPath = join(root, 'cordis.yml')
@@ -121,7 +122,6 @@ async function loadComposition(
   ].join('\n'))
 
   context = new Context()
-  context.provide('connection', { allowsRemoteAuthorities: options.remoteAuthorities === true } as never)
   if (options.launchEnvironment !== undefined) context.provide(DSH_LAUNCH_ENVIRONMENT_KEY, options.launchEnvironment)
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
@@ -249,13 +249,10 @@ describe('real Loader composition', () => {
     expect(await readFile(configPath, 'utf8')).not.toContain(NATIVE)
   })
 
-  it.each([
-    { signal: 'a trust policy that admits a remote authority', remoteAuthorities: true },
-    { signal: 'an SSH launch', ssh: '10.0.0.2 55 10.0.0.9 22' },
-  ])('mounts the browse backend under $signal even on an attended loopback host', { timeout: 60_000 }, async ({ remoteAuthorities, ssh }) => {
+  it('mounts the browse backend under an SSH launch even on an attended loopback host', { timeout: 60_000 }, async () => {
     stubAttendedHost()
-    if (ssh !== undefined) vi.stubEnv('SSH_CONNECTION', ssh)
-    const { ctx } = await loadComposition('127.0.0.1', { remoteAuthorities: remoteAuthorities ?? false })
+    vi.stubEnv('SSH_CONNECTION', '10.0.0.2 55 10.0.0.9 22')
+    const { ctx } = await loadComposition('127.0.0.1')
 
     expect(entryNames(ctx)).toContain(BROWSE)
     expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
@@ -265,14 +262,14 @@ describe('real Loader composition', () => {
     expect(picker.capability().kind).toBe('browse')
   })
 
-  it.skipIf(NON_LOOPBACK_IPV4 === undefined)('mounts the browse backend for a non-loopback bind even on an attended host', { timeout: 60_000 }, async () => {
+  it.skipIf(NON_LOOPBACK_IPV4 === undefined)('mounts the native backend for a non-loopback bind on an attended host', { timeout: 60_000 }, async () => {
     stubAttendedHost()
     const { ctx } = await loadComposition(NON_LOOPBACK_IPV4!)
 
-    expect(entryNames(ctx)).toContain(BROWSE)
-    expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
-    expect(entryNames(ctx)).not.toContain(NATIVE)
-    expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+    expect(entryNames(ctx)).toContain(NATIVE)
+    expect(entryNames(ctx)).toContain(NATIVE_SURFACE)
+    expect(entryNames(ctx)).not.toContain(BROWSE)
+    expect(entryNames(ctx)).not.toContain(BROWSE_SURFACE)
   })
 
   it('unmounts the backend when the surface entry fails to load', { timeout: 60_000 }, async () => {
